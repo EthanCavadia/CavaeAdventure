@@ -24,15 +24,14 @@ public class CellularAutomata2D : MonoBehaviour
 
     Cell[,] cells;
 
-    bool isRunning = false;
-
-    int currentRegion = 0;
+    private bool _isRunning = false;
+    private int _currentRegion = 0;
     
     void Start()
     {
-        cells = new Cell[sizeX, sizeY];
         
-        isRunning = true;
+        cells = new Cell[sizeX, sizeY];
+        _isRunning = true;
 
         Generate();
     }
@@ -66,7 +65,7 @@ public class CellularAutomata2D : MonoBehaviour
 
     void Cellular()
     {
-        BoundsInt bounds = new BoundsInt(-1, -1, 0, 3, 3, 1);
+        BoundsInt bounds = new BoundsInt(new Vector3Int(-1,-1,0),new Vector3Int(3,3,1));
         
         for (int x = 0; x < sizeX; x++)
         {
@@ -81,10 +80,11 @@ public class CellularAutomata2D : MonoBehaviour
                     if (cells[x + b.x, y + b.y].isAlive)
                     {
                         aliveNeighbours++;
+                        Debug.Log(aliveNeighbours);
                     }
                 }
 
-                if (cells[x, y].isAlive && (aliveNeighbours == 3 || aliveNeighbours >= 4))
+                if (cells[x, y].isAlive && (aliveNeighbours == 1 || aliveNeighbours >= 4))
                 {
                     cells[x, y].futureState = true;
                 }
@@ -110,7 +110,7 @@ public class CellularAutomata2D : MonoBehaviour
     
     void OnDrawGizmos()
     {
-        if (!isRunning) return;
+        if (!_isRunning) return;
 
         for (int x = 0; x < sizeX; x++)
         {
@@ -132,7 +132,7 @@ public class CellularAutomata2D : MonoBehaviour
     {
         Gizmos.color = Color.white;
 
-        Gizmos.DrawWireCube(new Vector3(pos.x, pos.y, 0), Vector2.one);
+        Gizmos.DrawCube(new Vector3(pos.x, pos.y, 0), Vector2.one);
     }
 
     void DrawDeadCell(Vector2 pos)

@@ -226,6 +226,7 @@ MonoBehaviour:
   sizeX: 100
   sizeY: 50
   iteration: 10
+  fillPercent: 0.52
 --- !u!4 &652759865
 Transform:
   m_ObjectHideFlags: 0
