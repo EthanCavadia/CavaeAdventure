@@ -2,14 +2,22 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.Tilemaps;
 using Random = UnityEngine.Random;
 
 public class CellularAutomata : MonoBehaviour
 {
+    [Header("Map ")]
     [Range(0, 1000)] [SerializeField] private int sizeX = 100;
     [Range(0, 1000)] [SerializeField] private int sizeY = 50;
-    [Range(0, 100)] [SerializeField] private int iteration = 10;
     [Range(0,1)] [SerializeField] private float fillPercent = 0.5f;
+    [Range(0, 100)] [SerializeField] private int iteration = 10;
+    [SerializeField] private int minimumCellInRoom = 30;
+    [SerializeField] private TileBase wallTile;
+    [SerializeField] private TileBase groundTile;
+    [SerializeField] private Tilemap wallTilemap;
+    [SerializeField] private Tilemap groundTilemap;
     struct Cell
     {
         public bool IsAlive;
@@ -18,12 +26,19 @@ public class CellularAutomata : MonoBehaviour
         public int Region;
     }
 
-    struct Room
+    class Room
     {
+        public int RoomID;
         public List<Cell> Cells;
-        public int NbCells;
+        public List<Room> ClosestRoom;
+        public List<Tunnel> Tunnels;
+        public Vector2 RoomCenter;
     }
 
+    struct Tunnel
+    {
+        public Cell StartCell, EndCell;
+    }
 
     Cell[,] _cells;
     List<Room> rooms = new List<Room>();
@@ -59,7 +74,7 @@ public class CellularAutomata : MonoBehaviour
     {
         if (Input.GetMouseButton(0))
         {
-            Generate();
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
     }
 
@@ -74,6 +89,7 @@ public class CellularAutomata : MonoBehaviour
 
         GetRoom();
         Path();
+        
     }
 
     void Init()
@@ -102,7 +118,7 @@ public class CellularAutomata : MonoBehaviour
         {
             for (int y = 0; y < sizeY; y++)
             {
-                if (x == 0 || x == sizeX-1 || y == 0 || y == sizeY-1)
+                if (x == 1 || x == sizeX-1 || y == 1 || y == sizeY-1)
                 {
                     _cells[x, y].IsAlive = false;
                 }
@@ -165,7 +181,6 @@ public class CellularAutomata : MonoBehaviour
                 {
                     _cells[openList[0].x, openList[0].y].Region = _currentRegion;
                     closedList.Add(openList[0]);
-                    room.NbCells++;
                     room.Cells.Add(_cells[openList[0].x, openList[0].y]);
 
                     foreach (Vector2Int b in bounds.allPositionsWithin)
@@ -194,30 +209,41 @@ public class CellularAutomata : MonoBehaviour
                         if (openList.Contains(pos)) continue; //Error
 
                         openList.Add(new Vector2Int(pos.x, pos.y));
-                        room.NbCells++;
                         room.Cells.Add(_cells[pos.x, pos.y]);
-
                     }
 
                     openList.RemoveAt(0);
                 }
-                
+
+                room.RoomID = _currentRegion;
                 rooms.Add(room);
                 _currentRegion++;
             }
         }
-
-        Debug.Log("There is : " + (rooms.Count - 1) + " Rooms");
-        int i = 1;
-        foreach (Room r in rooms)
-        {
-            Debug.Log("In room " + i + " There is " + r.Cells.Count);
-            if (r.Cells.Count < 30)
-            {
-                CleanRoom(r);
+        
+        List<Room> smallRooms = new List<Room>();
+        for(int i = 0; i < rooms.Count; i++) {
+            Room currentRoom = rooms[i];
+            
+            if (currentRoom.Cells.Count < minimumCellInRoom) {
+                CleanRoom(currentRoom);
+                smallRooms.Add(currentRoom);
             }
+        }
 
-            i++;
+        foreach (Room r in smallRooms)
+        {
+            smallRooms.Remove(r);
+        }
+
+        for (int i = 0; i < rooms.Count; i++)
+        {
+            Room currentRoom = rooms[i];
+
+            Vector2 center = Tunneling(currentRoom);
+            Debug.Log(center);
+            rooms[i].RoomCenter = center;
+            
         }
     }
 
@@ -249,6 +275,24 @@ public class CellularAutomata : MonoBehaviour
 
         //GetComponent<BFS>().PathFinder(cells, startCell, endCell);
     }
+
+    private Vector2 Tunneling(Room room)
+    {
+        Vector2Int roomCenter = new Vector2Int();
+
+        foreach (Cell cell in room.Cells)
+        {
+            roomCenter.x += cell.Position.x;
+            roomCenter.y += cell.Position.y;
+        }
+
+        roomCenter.x /= room.Cells.Count;
+        roomCenter.y /= room.Cells.Count;
+        
+        return roomCenter;
+    }
+    
+    
     
     void OnDrawGizmos()
     {
@@ -258,28 +302,17 @@ public class CellularAutomata : MonoBehaviour
         {
             for (int y = 0; y < sizeY; y++)
             {
-                if (_cells[x, y].IsAlive)
+                if (!_cells[x, y].IsAlive)
                 {
-                    DrawAliveCell(new Vector2Int(x, y));
-                }
-                else
-                {
-                    DrawDeadCell(new Vector2(x, y));
+                    wallTilemap.SetTile(new Vector3Int(x, y, 0), wallTile);
                 }
             }
         }
-    }
 
-    void DrawAliveCell(Vector2Int pos)
-    {
-        //Gizmos.color = _cells[pos.x, pos.y].Region < 0 ? Color.clear : _colors[_cells[pos.x, pos.y].Region % _colors.Count];
-        Gizmos.color = Color.white;
-        Gizmos.DrawCube(new Vector3(pos.x, pos.y, 0), Vector2.one);
-    }
-
-    void DrawDeadCell(Vector2 pos)
-    {
-        Gizmos.color = Color.black;
-        Gizmos.DrawCube(new Vector3(pos.x, pos.y, 0), Vector2.one);
+        foreach (Room r in rooms)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawSphere(r.RoomCenter,1);
+        }
     }
 }
