@@ -138,7 +138,6 @@
           </e>
         </e>
         <e p="Scripts" t="Include">
-          <e p="BFS.cs" t="Include" />
           <e p="CellularAutomata.cs" t="Include" />
           <e p="CellularAutomata2D.cs" t="Include" />
         </e>

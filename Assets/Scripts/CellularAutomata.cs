@@ -8,16 +8,19 @@ using Random = UnityEngine.Random;
 
 public class CellularAutomata : MonoBehaviour
 {
-    [Header("Map ")]
+    [Header("Map ")] 
     [Range(0, 1000)] [SerializeField] private int sizeX = 100;
     [Range(0, 1000)] [SerializeField] private int sizeY = 50;
-    [Range(0,1)] [SerializeField] private float fillPercent = 0.5f;
+    [Range(0, 1)] [SerializeField] private float fillPercent = 0.5f;
     [Range(0, 100)] [SerializeField] private int iteration = 10;
     [SerializeField] private int minimumCellInRoom = 30;
     [SerializeField] private TileBase wallTile;
     [SerializeField] private TileBase groundTile;
     [SerializeField] private Tilemap wallTilemap;
     [SerializeField] private Tilemap groundTilemap;
+    [SerializeField] private bool showPaths;
+    [SerializeField] private bool drawDebugGizmo;
+
     struct Cell
     {
         public bool IsAlive;
@@ -28,14 +31,14 @@ public class CellularAutomata : MonoBehaviour
 
     class Room
     {
-        public int RoomID;
         public List<Cell> Cells;
         public List<Room> ClosestRoom;
         public List<Tunnel> Tunnels;
         public Vector2 RoomCenter;
+
     }
 
-    struct Tunnel
+    private struct Tunnel
     {
         public Cell StartCell, EndCell;
     }
@@ -45,15 +48,13 @@ public class CellularAutomata : MonoBehaviour
 
     private bool _isRunning = false;
     private int _currentRegion = 0;
-    
-    private List<Color> _colors;
+
+    private List<Color> colors;
 
     // Start is called before the first frame update
-    void Start()
+    private void Start()
     {
-        _cells = new Cell[sizeX, sizeX];
-
-        _colors = new List<Color>
+        colors = new List<Color>
         {
             Color.white,
             Color.blue,
@@ -64,7 +65,7 @@ public class CellularAutomata : MonoBehaviour
             Color.red,
             Color.yellow
         };
-
+        _cells = new Cell[sizeX, sizeY];
         _isRunning = true;
 
         Generate();
@@ -78,21 +79,21 @@ public class CellularAutomata : MonoBehaviour
         }
     }
 
-    void Generate()
+    private void Generate()
     {
         Init();
 
         for (int i = 0; i < iteration; i++)
         {
             Cellular();
+            
         }
 
         GetRoom();
-        Path();
-        
+        DrawMap();
     }
 
-    void Init()
+    private void Init()
     {
         for (int x = 0; x < sizeX; x++)
         {
@@ -110,7 +111,7 @@ public class CellularAutomata : MonoBehaviour
         }
     }
 
-    void Cellular()
+    private void Cellular()
     {
         BoundsInt bounds = new BoundsInt(-1, -1, 0, 3, 3, 1);
 
@@ -118,7 +119,7 @@ public class CellularAutomata : MonoBehaviour
         {
             for (int y = 0; y < sizeY; y++)
             {
-                if (x == 1 || x == sizeX-1 || y == 1 || y == sizeY-1)
+                if (x == 1 || x == sizeX - 1 || y == 1 || y == sizeY - 1)
                 {
                     _cells[x, y].IsAlive = false;
                 }
@@ -215,17 +216,19 @@ public class CellularAutomata : MonoBehaviour
                     openList.RemoveAt(0);
                 }
 
-                room.RoomID = _currentRegion;
                 rooms.Add(room);
                 _currentRegion++;
+                Debug.Log(_currentRegion);
             }
         }
-        
+
         List<Room> smallRooms = new List<Room>();
-        for(int i = 0; i < rooms.Count; i++) {
+        for (int i = 0; i < rooms.Count; i++)
+        {
             Room currentRoom = rooms[i];
-            
-            if (currentRoom.Cells.Count < minimumCellInRoom) {
+
+            if (currentRoom.Cells.Count < minimumCellInRoom)
+            {
                 CleanRoom(currentRoom);
                 smallRooms.Add(currentRoom);
             }
@@ -233,52 +236,54 @@ public class CellularAutomata : MonoBehaviour
 
         foreach (Room r in smallRooms)
         {
-            smallRooms.Remove(r);
+            rooms.Remove(r);
         }
 
         for (int i = 0; i < rooms.Count; i++)
         {
             Room currentRoom = rooms[i];
 
-            Vector2 center = Tunneling(currentRoom);
+            Vector2 center = GetRoomCenter(currentRoom);
             Debug.Log(center);
             rooms[i].RoomCenter = center;
-            
+        }
+
+        for (int i = 0; i < rooms.Count; i++)
+        {
+            Room currentRoom = rooms[i];
+
+            rooms[i].ClosestRoom = GetClosestRoom(currentRoom);
+        }
+
+        for (int i = 0; i < rooms.Count; i++)
+        {
+            Room currentRoom = rooms[i];
+
+            rooms[i].Tunnels = GetPath(currentRoom.ClosestRoom, currentRoom);
+        }
+
+        foreach (Room r in rooms)
+        {
+            foreach (Tunnel t in r.Tunnels)
+            {
+                List<Cell> tunnel = TunnelToEnd(t);
+                CreateTunnel(tunnel);
+            }
         }
     }
 
 
-    void CleanRoom(Room room)
+    private void CleanRoom(Room room)
     {
         foreach (Cell c in room.Cells)
         {
             _cells[c.Position.x, c.Position.y].IsAlive = false;
         }
     }
-    
-    void Path() {
-        Cell startCell = new Cell();
-        startCell.IsAlive = true;
-        while (startCell.IsAlive) {
-            //Debug.Log("start Cell finding");
-            startCell = _cells[Random.Range(5, sizeX-5), Random.Range(5, sizeY-5)];
-        }
-        //Debug.Log("start Cell Found");
 
-        Cell endCell = new Cell();
-        endCell.IsAlive = true;
-        while (endCell.IsAlive) {
-            //Debug.Log("end Cell finding");
-            endCell = _cells[Random.Range(5, sizeX-5), Random.Range(5, sizeY-5)];
-        }
-        // Debug.Log("end Cell Found");
-
-        //GetComponent<BFS>().PathFinder(cells, startCell, endCell);
-    }
-
-    private Vector2 Tunneling(Room room)
+    private Vector2 GetRoomCenter(Room room)
     {
-        Vector2Int roomCenter = new Vector2Int();
+        Vector2 roomCenter = new Vector2();
 
         foreach (Cell cell in room.Cells)
         {
@@ -288,16 +293,169 @@ public class CellularAutomata : MonoBehaviour
 
         roomCenter.x /= room.Cells.Count;
         roomCenter.y /= room.Cells.Count;
-        
+
         return roomCenter;
     }
-    
-    
-    
-    void OnDrawGizmos()
-    {
-        if (!_isRunning) return;
 
+    private List<Room> GetClosestRoom(Room room)
+    {
+        float bestDistance = 100;
+        List<Room> closestRoom = new List<Room>();
+        Room currentClosestRoom = new Room();
+
+        foreach (Room r in rooms)
+        {
+            if (r != room)
+            {
+                float d = Distance(r.RoomCenter, room.RoomCenter);
+                if (d < bestDistance)
+                {
+                    bestDistance = d;
+                    currentClosestRoom = r;
+                    
+                }
+            }
+        }
+
+        closestRoom.Add(currentClosestRoom);
+        currentClosestRoom = new Room();
+        bestDistance = 100;
+        foreach (Room r in rooms)
+        {
+            if (r != room && !closestRoom.Contains(r))
+            {
+                float d = Distance(r.RoomCenter, room.RoomCenter);
+                if (d < bestDistance)
+                {
+                    currentClosestRoom = r;
+                    bestDistance = d;
+                }
+            }
+        }
+
+        closestRoom.Add(currentClosestRoom);
+        return closestRoom;
+    }
+
+    private List<Tunnel> GetPath(List<Room> closestRooms, Room currentRoom)
+    {
+        List<Tunnel> tunnels = new List<Tunnel>();
+
+        foreach (Room closestRoom in closestRooms)
+        {
+            Tunnel tunnel = new Tunnel();
+            Cell currentClosestCell = new Cell();
+            float bestDistance = 100;
+
+            foreach (Cell c in currentRoom.Cells)
+            {
+                float d = Distance(c.Position, closestRoom.RoomCenter);
+                if (d < bestDistance)
+                {
+                    currentClosestCell = c;
+                    bestDistance = d;
+                }
+            }
+
+
+            Cell otherClosestCell = new Cell();
+            float otherClosestDistance = 100;
+            foreach (Cell c in closestRoom.Cells)
+            {
+                float dist = Distance(c.Position, currentRoom.RoomCenter);
+                if (dist < otherClosestDistance)
+                {
+                    otherClosestCell = c;
+                    otherClosestDistance = dist;
+                }
+            }
+
+            tunnel.StartCell = currentClosestCell;
+            tunnel.EndCell = otherClosestCell;
+            tunnels.Add(tunnel);
+        }
+
+        return tunnels;
+    }
+
+    private void CreateTunnel(List<Cell> tunnel)
+    {
+        foreach (Cell cell in tunnel)
+        {
+            if (!cell.IsAlive)
+            {
+                _cells[cell.Position.x, cell.Position.y].IsAlive = true;
+                List<Cell> neighbours = FindCells(cell);
+
+                foreach (Cell c in neighbours)
+                {
+                    if (!c.IsAlive)
+                    {
+                        _cells[c.Position.x, c.Position.y].IsAlive = true;
+                    }
+                }
+            }
+        }
+    }
+
+    List<Cell> TunnelToEnd(Tunnel tunnel)
+    {
+        List<Cell> tunnelTo = new List<Cell>();
+        tunnelTo.Add(tunnel.StartCell);
+
+        //safe exit
+        int iteration = 0;
+        int maxIteration = 100;
+
+        while (tunnelTo[tunnelTo.Count - 1].Position != tunnel.EndCell.Position && iteration < maxIteration)
+        {
+            iteration++;
+            List<Cell> neighbours = FindCells(tunnelTo[tunnelTo.Count - 1]);
+            float lowestDist = 500;
+            Cell lowestCell = new Cell();
+
+            foreach (Cell c in neighbours)
+            {
+                if (Distance(c.Position, tunnel.EndCell.Position) < lowestDist)
+                {
+                    lowestDist = Distance(c.Position, tunnel.EndCell.Position);
+                    lowestCell = c;
+                }
+            }
+
+            tunnelTo.Add(lowestCell);
+        }
+
+        return tunnelTo;
+    }
+
+    private List<Cell> FindCells(Cell cell)
+    {
+        BoundsInt bounds = new BoundsInt(-1, -1, 0, 3, 3, 1);
+        List<Cell> allCells = new List<Cell>();
+        foreach (Vector2Int b in bounds.allPositionsWithin)
+        {
+            //Not check itself
+            if (b.x == 0 && b.y == 0) continue;
+            //Not check if out of bounds
+            if (cell.Position.x + b.x < 0 || cell.Position.x + b.x >= sizeX || cell.Position.y + b.y < 0 ||
+                cell.Position.y + b.y >= sizeY) continue;
+
+            //Add neighbours to list
+            allCells.Add(_cells[cell.Position.x + b.x, cell.Position.y + b.y]);
+        }
+
+        return allCells;
+    }
+
+    float Distance(Vector2 start, Vector2 end)
+    {
+        float distance = Mathf.Abs(end.x - start.x) + Mathf.Abs(end.y - start.y);
+        return distance;
+    }
+
+    void DrawMap()
+    {
         for (int x = 0; x < sizeX; x++)
         {
             for (int y = 0; y < sizeY; y++)
@@ -306,13 +464,59 @@ public class CellularAutomata : MonoBehaviour
                 {
                     wallTilemap.SetTile(new Vector3Int(x, y, 0), wallTile);
                 }
+                
+                groundTilemap.SetTile(new Vector3Int(x,y,0),groundTile);
+            }
+        }
+    }
+
+    void OnDrawGizmos()
+    {
+        if (!_isRunning) return;
+
+        for (int x = 0; x < sizeX; x++)
+        {
+            for (int y = 0; y < sizeY; y++)
+            {
+                if (_cells[x, y].IsAlive && drawDebugGizmo)
+                {
+                    DrawAliveCell(new Vector2Int(x, y));
+                }
+            }
+
+            if (showPaths)
+            {
+                foreach (Room r in rooms)
+                {
+                    Gizmos.color = Color.red;
+                    Gizmos.DrawSphere(r.RoomCenter, 1);
+
+                    foreach (Tunnel path in r.Tunnels)
+                    {
+                        Vector3 start = new Vector3(path.StartCell.Position.x, path.StartCell.Position.y, 0);
+                        Vector3 end = new Vector3(path.EndCell.Position.x, path.EndCell.Position.y, 0);
+                        Gizmos.color = Color.cyan;
+                        Gizmos.DrawSphere(start, 0.5f);
+                        Gizmos.color = Color.blue;
+
+                        Gizmos.DrawSphere(end, 0.5f);
+                        Gizmos.DrawLine(start, end);
+
+                    }
+                }
             }
         }
 
-        foreach (Room r in rooms)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawSphere(r.RoomCenter,1);
-        }
+
+    }
+
+    void DrawAliveCell(Vector2Int pos)
+    {
+        Gizmos.color = _cells[pos.x, pos.y].Region < 0
+            ? Color.clear
+            : colors[_cells[pos.x, pos.y].Region % colors.Count];
+
+
+        Gizmos.DrawCube(new Vector3Int(pos.x, pos.y, 0),Vector2.one);
     }
 }
