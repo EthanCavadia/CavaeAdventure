@@ -138,8 +138,22 @@
           </e>
         </e>
         <e p="Scripts" t="Include">
-          <e p="CellularAutomata.cs" t="Include" />
-          <e p="CellularAutomata2D.cs" t="Include" />
+          <e p="AlgorithmScripts" t="Include">
+            <e p="CellularAutomata.cs" t="Include" />
+            <e p="Pathfinding.cs" t="Include" />
+            <e p="PathManager.cs" t="Include" />
+            <e p="Waypoint.cs" t="Include" />
+          </e>
+          <e p="GameplayScripts" t="Include">
+            <e p="Enemies" t="Include">
+              <e p="EnemiesBehavior.cs" t="Include" />
+            </e>
+            <e p="Fireball.cs" t="Include" />
+            <e p="Player" t="Include">
+              <e p="Bullet.cs" t="Include" />
+              <e p="PlayerMouvement.cs" t="Include" />
+            </e>
+          </e>
         </e>
       </e>
       <e p="CavaeAdventure.sln" t="IncludeFlat" />
