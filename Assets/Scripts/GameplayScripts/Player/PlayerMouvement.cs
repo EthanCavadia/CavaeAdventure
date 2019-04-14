@@ -10,28 +10,20 @@ public class PlayerMouvement : MonoBehaviour
     private float h;
     private float v;
     private Rigidbody2D body2D;
-    
+    private Animator animator;
     [SerializeField] private float playerSpeed;
 
 
     private void Awake()
     {
-        if (instance != null && instance != this)
-        {
-            Destroy(gameObject);
-        }
-        else
-        {
-            instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
+        instance = this;
     }
 
     void Start()
     {
         body2D = GetComponent<Rigidbody2D>();
-        
-        
+        animator = GetComponent<Animator>();
+
     }
 
     private void FixedUpdate()
@@ -53,10 +45,15 @@ public class PlayerMouvement : MonoBehaviour
 
     void Movement()
     {
-        h = Input.GetAxis("Horizontal");
-        v = Input.GetAxis("Vertical");
         
-        Vector2 movement = new Vector2(h,v);
+        
+        Vector3 movement = new Vector3(Input.GetAxis("Horizontal"),Input.GetAxis("Vertical"), 0.0f) * playerSpeed;
+        
+        animator.SetFloat("Horizontal", movement.x);
+        animator.SetFloat("Vertical", movement.y);
+        animator.SetFloat("Magnitude", movement.magnitude);
+
+        transform.position = transform.position + movement * Time.deltaTime;
     }
     
     void Shoot()

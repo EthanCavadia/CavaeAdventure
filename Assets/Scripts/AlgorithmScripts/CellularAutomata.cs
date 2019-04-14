@@ -18,7 +18,7 @@ public class CellularAutomata : MonoBehaviour
     [SerializeField] private TileBase groundTile;
     [SerializeField] private Tilemap wallTilemap;
     [SerializeField] private Tilemap groundTilemap;
-    [SerializeField] private Tilemap colliderTilemap;
+    [SerializeField] private Tilemap backgroundTilemap;
     [SerializeField] private bool showPaths;
     [SerializeField] private bool drawDebugGizmo;
     [SerializeField] private GameObject playerPrefab;
@@ -50,7 +50,7 @@ public class CellularAutomata : MonoBehaviour
     Cell[,] _cells;
     List<Room> rooms = new List<Room>();
     private int _playerCount = 1;
-    private int _enemiesCount = 1;
+    private int _enemiesCount = 10;
     private bool _isRunning = false;
     private int _currentRegion = 0;
     private float offset = 2;
@@ -58,23 +58,14 @@ public class CellularAutomata : MonoBehaviour
 
 
     public static CellularAutomata instance;
-    
+
     private void Awake()
     {
-        if (instance != null && instance != this)
-        {
-            Destroy(gameObject);
-        }
-        else
-        {
-            instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
+        instance = this;
     }
-    
+
     private void Start()
     {
-        
 
         if (seed == 0)
         {
@@ -258,6 +249,8 @@ public class CellularAutomata : MonoBehaviour
 
             if (currentRoom.Cells.Count < minimumCellInRoom)
             {
+                //for each room with less than the minimum cell count 
+                
                 CleanRoom(currentRoom);
                 smallRooms.Add(currentRoom);
             }
@@ -299,38 +292,25 @@ public class CellularAutomata : MonoBehaviour
             }
         }
 
+        int randomNb = Random.Range(0, rooms[0].Cells.Count);
+        Vector3 spawnPosition = new Vector3(rooms[0].Cells[randomNb].Position.x, rooms[0].Cells[randomNb].Position.y);
+        
+        
+        Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
+        rooms[0].occupied = true;
+
 
         for (int i = 0; i < rooms.Count; i++)
         {
             Room currentRoom = rooms[i];
-
-            if (currentRoom.Cells.Count > minimumCellInRoom)
+            int random = Random.Range(0, currentRoom.Cells.Count);
+            Vector3 cellsPos = new Vector3(rooms[i].Cells[random].Position.x, rooms[i].Cells[random].Position.y);
+            
+            if (_enemiesCount > 0 && !currentRoom.occupied)
             {
-                Vector2 center = GetRoomCenter(currentRoom);
-                if (_playerCount > 0)
-                {
-                    _playerCount--;
-                    Instantiate(playerPrefab, center, Quaternion.identity);
-                    currentRoom.occupied = true;
-                }
-            }
-        }
-
-        foreach (Room r in rooms)
-        {
-            for (int i = 0; i < rooms.Count; i++)
-            {
-                Room currentRoom = rooms[i];
-
-                if (currentRoom.Cells.Count > minimumCellInRoom)
-                {
-                    Vector2 center = GetRoomCenter(currentRoom);
-                    if (_enemiesCount > 0 && !currentRoom.occupied)
-                    {
-                        _enemiesCount--;
-                        Instantiate(enemiesPrefab, center+Vector2.one, Quaternion.identity);
-                    }
-                }
+                _enemiesCount--;
+                Instantiate(enemiesPrefab, cellsPos, Quaternion.identity);
+                Debug.Log("enemies spawn position" + cellsPos);
             }
         }
     }
@@ -375,12 +355,11 @@ public class CellularAutomata : MonoBehaviour
                 {
                     bestDistance = d;
                     currentClosestRoom = r;
-                    
                 }
             }
         }
-
         closestRoom.Add(currentClosestRoom);
+        
         currentClosestRoom = new Room();
         bestDistance = 500;
         foreach (Room r in rooms)
@@ -403,7 +382,7 @@ public class CellularAutomata : MonoBehaviour
     private List<Tunnel> GetPath(List<Room> closestRooms, Room currentRoom)
     {
         List<Tunnel> tunnels = new List<Tunnel>();
-
+        
         foreach (Room closestRoom in closestRooms)
         {
             Tunnel tunnel = new Tunnel();
@@ -423,6 +402,7 @@ public class CellularAutomata : MonoBehaviour
 
             Cell otherClosestCell = new Cell();
             float otherClosestDistance = 500;
+            
             foreach (Cell c in closestRoom.Cells)
             {
                 float dist = Distance(c.Position, currentRoom.RoomCenter);
@@ -525,16 +505,15 @@ public class CellularAutomata : MonoBehaviour
             {
                 if (!_cells[x, y].IsAlive)
                 {
-                    wallTilemap.SetTile(new Vector3Int(x, y, 0), wallTile);
-                    colliderTilemap.SetTile(new Vector3Int(x,y,0), wallTile);
+                    wallTilemap.SetTile(new Vector3Int(x,y,0),wallTile);
                 }
 
                 if (_cells[x,y].IsAlive)
                 {
-                    wallTilemap.SetTile(new Vector3Int(x,y,0), groundTile);
+                    groundTilemap.SetTile(new Vector3Int(x,y,0), groundTile);
                 }
                 
-                groundTilemap.SetTile(new Vector3Int(x,y,0),groundTile);
+                backgroundTilemap.SetTile(new Vector3Int(x,y,0),groundTile);
             }
         }
     }
@@ -549,8 +528,9 @@ public class CellularAutomata : MonoBehaviour
             {
                 if (_cells[x, y].IsAlive && drawDebugGizmo)
                 {
-                    DrawAliveCell(new Vector2Int(x, y));
+                     DrawAliveCell(_cells[x,y].Position);
                 }
+               
             }
 
             if (showPaths)
@@ -582,5 +562,6 @@ public class CellularAutomata : MonoBehaviour
         Gizmos.color = _cells[pos.x, pos.y].Region < 0 ? Color.clear : colors[_cells[pos.x, pos.y].Region % colors.Count];
 
         Gizmos.DrawCube(new Vector3Int(pos.x, pos.y, 0),Vector2.one);
+        
     }
 }

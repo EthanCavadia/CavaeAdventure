@@ -1,67 +1,73 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using UnityEngine;
 using UnityEngine.Tilemaps;
-using Color = UnityEngine.Color;
 
 public class Node
 {
-    public List<Node> neighbors = new List<Node>();
-    public Vector2 pos;
+    public List<Node> Neighbors = new List<Node>();
+    public Vector2 Pos;
 
-    public bool isFree;
+    public bool IsFree;
 
-    public bool hasBeenVisited = false;
-    public bool isPath = false;
+    public bool HasBeenVisited = false;
+    public bool IsPath = false;
 
-    public Node cameFrom = null;
-    
-    public float currentCost = -1;
+    public Node CameFrom = null;
+
+    public float CurrentCost = -1;
 }
 
 public class Pathfinding : MonoBehaviour
 {
     [SerializeField] private Tilemap tilemap;
     [SerializeField] private bool gizmo;
-    private int minX, minY, maxX, maxY;
-    private Vector2 playerPos;
-    private Vector2 enemiesPos;
+
+    private Node[,] _graph;
+
+    private int _minX, _minY, _maxX, _maxY;
+    private Transform _playerPos;
+    private Vector2 _enemiesPos;
+
     [HideInInspector] public Node tileStart;
     [HideInInspector] public Node tileGoal;
-    Node[,] graph = new Node[CellularAutomata.instance.sizeX, CellularAutomata.instance.sizeY];
-    public static Pathfinding instance;
-    
+
+    public static Pathfinding Instance;
+
     private void Awake()
     {
-        instance = this;
-        
+        Instance = this;
     }
 
     private void Start()
     {
+         _graph = new Node[CellularAutomata.instance.sizeX, CellularAutomata.instance.sizeY];
+         
+        Invoke("LateStart", 2);
+        
+    }
 
-        //nInvoke("LateStart", 2);
-        playerPos = FindObjectOfType<PlayerMouvement>().transform.position;
-
+    private void LateStart()
+    {
+        _playerPos = FindObjectOfType<PlayerMouvement>().transform;
+        
         GenerateGraph();
     }
 
     void GenerateGraph()
     {
-        minX = tilemap.cellBounds.xMin;
-        maxX = tilemap.cellBounds.xMax;
+        _minX = tilemap.cellBounds.xMin;
+        _maxX = tilemap.cellBounds.xMax;
 
-        minY = tilemap.cellBounds.yMin;
-        maxY = tilemap.cellBounds.yMax;
+        _minY = tilemap.cellBounds.yMin;
+        _maxY = tilemap.cellBounds.yMax;
 
-        graph = new Node[maxX - minX, maxY - minY];
+        _graph = new Node[_maxX - _minX, _maxY -_minY];
 
-        for (int x = minX; x < maxX; x++)
+        for (int x = _minX; x < _maxX; x++)
         {
-            for (int y = minY; y < maxY; y++)
+            for (int y = _minY; y < _maxY; y++)
             {
                 TileBase currentTile = tilemap.GetTile(new Vector3Int(x, y, 0));
 
@@ -69,75 +75,75 @@ public class Pathfinding : MonoBehaviour
 
                 Node newNode = new Node
                 {
-                    pos = new Vector2(x * tilemap.cellSize.x + tilemap.cellSize.x / 2,
-                        y * tilemap.cellSize.y + tilemap.cellSize.y / 2),
-                    neighbors = new List<Node>()
+                    Pos = new Vector2(x * tilemap.cellSize.x + tilemap.cellSize.x / 2, y * tilemap.cellSize.y + tilemap.cellSize.y / 2),
+                    Neighbors = new List<Node>()
                 };
 
                 switch (currentTile.name)
                 {
-                    case "CaveWall":
-                        newNode.isFree = false;
-                        break;
-                    case "ColliderTilemap":
-                        newNode.isFree = false;
-                        break;
                     case "GroundTile":
-                        newNode.isFree = true;
+                        newNode.IsFree = true;
                         break;
                 }
 
-                graph[x - minX, y - minY] = newNode;
+                _graph[x - _minX, y - _minY] = newNode;
             }
         }
 
         BoundsInt bounds = new BoundsInt(-1, -1, 0, 3, 3, 1);
-
-        for (int i = 0; i < graph.GetLength(0); i++)
+        
+        for (int i = 0; i < _graph.GetLength(0); i++)
         {
-            for (int j = 0; j < graph.GetLength(1); j++)
+            for (int j = 0; j < _graph.GetLength(1); j++)
             {
-                Node node = graph[i, j];
+                Node node = _graph[i, j];
 
                 if (node == null) continue;
-                if (!node.isFree) continue;
+                if (!node.IsFree) continue;
 
                 foreach (Vector2Int b in bounds.allPositionsWithin)
                 {
-                    if (i + b.x < 0 || i + b.x > maxX - minX || j + b.y <= 0 || j + b.y > maxY - minY) continue;
+                    if (i + b.x < 0 || i + b.x >= _maxX - _minX || j + b.y < 0 || j + b.y >= _maxY - _minY) continue;
                     if (b.x == 0 && b.y == 0) continue;
-
-                    if (graph[i + b.x, j + b.y] == null) continue;
-                    if (!graph[i + b.x, j + b.y].isFree) continue;
-
-                    node.neighbors.Add(graph[i + b.x, j + b.y]);
+                    
+                    if (_graph[i + b.x, j + b.y] == null) continue;
+                    if (!_graph[i + b.x, j + b.y].IsFree) continue;
+                    if (b.x != 0 || b.y != 0)
+                    {
+                        if (_graph[i,j + b.y] == null) continue;
+                        if(!_graph[i,j + b.y].IsFree) continue;
+                        
+                        if (_graph[i + b.x,j] == null) continue;
+                        if(!_graph[i + b.x,j].IsFree) continue;
+                        
+                    }
+                    node.Neighbors.Add(_graph[i + b.x, j + b.y]);
                 }
             }
         }
-    }
+}
 
-   public List<Vector2> Astar(Vector2 startPos)
+    public List<Vector2> Astar(Vector2 startPos)
     {
-        tileStart = GetEnemiesPos(startPos);
-        tileGoal = GetPlayerPos();
-        
+        tileGoal = GetEnemiesPos(startPos);
+        tileStart = GetPlayerPos();
+
         List<Vector2> path = new List<Vector2>();
-        
-        
+
         List<Node> openList = new List<Node> {tileStart};
         List<Node> closedList = new List<Node>();
 
-        int crashValue = 1000;
+        int crashValue = 5000;
 
         while (openList.Count > 0 && --crashValue > 0)
         {
-            openList = openList.OrderBy(x => x.currentCost).ToList();
-            
+            openList.OrderBy(x => x.CurrentCost + Vector2.Distance(x.Pos,tileGoal.Pos)).ToList();
+
             Node currentNode = openList[0];
-            closedList.Add(currentNode);
             openList.RemoveAt(0);
 
-            currentNode.hasBeenVisited = true;
+            currentNode.HasBeenVisited = true;
+            closedList.Add(currentNode);
 
             if (currentNode == tileGoal)
             {
@@ -145,11 +151,11 @@ public class Pathfinding : MonoBehaviour
             }
             else
             {
-                foreach (Node currentNodeNeighbor in currentNode.neighbors)
+                foreach (Node currentNodeNeighbor in currentNode.Neighbors)
                 {
                     float modifier;
-                    if (currentNode.pos.x == currentNodeNeighbor.pos.x ||
-                        currentNode.pos.y == currentNodeNeighbor.pos.y)
+                    if (currentNode.Pos.x == currentNodeNeighbor.Pos.x ||
+                        currentNode.Pos.y == currentNodeNeighbor.Pos.y)
                     {
                         modifier = 2;
                     }
@@ -158,64 +164,67 @@ public class Pathfinding : MonoBehaviour
                         modifier = 4;
                     }
 
-                    //float newCost = currentNode.currentCost + currentNodeNeighbor.cost + modifier;
-                    float newCost = Vector2.Distance(currentNode.pos, tileStart.pos) + Vector2.Distance(currentNodeNeighbor.pos , tileGoal.pos) + modifier;
+                    float newCost = modifier;
+                    
 
-
-                    if (currentNodeNeighbor.currentCost == -1 || currentNodeNeighbor.currentCost > newCost)
+                    if (currentNodeNeighbor.CurrentCost == -1 && currentNodeNeighbor != tileStart || currentNodeNeighbor.CurrentCost > newCost)
                     {
-                        currentNodeNeighbor.cameFrom = currentNode;
-                        currentNodeNeighbor.currentCost = newCost;
-                        
+                        currentNodeNeighbor.CameFrom = currentNode;
+                        currentNodeNeighbor.CurrentCost = newCost;
+
                         openList.Add(currentNodeNeighbor);
                     }
                 }
             }
-        }
 
+            
+        }
+        
         if (crashValue <= 0)
         {
             Debug.Log("Mauvais");
         }
 
-        
-            Node _currentNode = tileGoal;
-            while (_currentNode.cameFrom != null)
+        {
+            Node currentNode = tileGoal;
+            while (currentNode.CameFrom != null)
             {
-                _currentNode.isPath = true;
-                _currentNode = _currentNode.cameFrom;
-                path.Add(_currentNode.pos);
+                currentNode.IsPath = true;
+                path.Add(currentNode.Pos);
+                currentNode = currentNode.CameFrom;
+                
             }
-            
-            _currentNode.isPath = true;
-        
 
+            currentNode.IsPath = true;
+        }
+        
         ResetNode();
         return path;
     }
-   
+
     public Node GetPlayerPos()
     {
         Node playerNode = new Node();
 
         float distance = 500;
-        
-        for (int x = minX; x < maxX; x++)
+
+        for (int x = _minX; x < _maxX; x++)
         {
-            for (int y = minY; y < maxY; y++)
+            for (int y = _minY; y < _maxY; y++)
             {
                 TileBase currentTile = tilemap.GetTile(new Vector3Int(x, y, 0));
 
                 if (currentTile == null) continue;
-                if (Vector2.Distance(graph[x - minX, y - minY].pos, playerPos) < distance && graph[x - minX, y - minY].isFree)
+                if (Vector2.Distance(_graph[x - _minX, y - _minY].Pos, _playerPos.position) < distance && _graph[x - _minX, y - _minY].IsFree)
                 {
-                    playerNode = graph[x - minX, y - minY];
-                    distance = Vector2.Distance(graph[x - minX, y - minY].pos, playerPos);
+                    playerNode = _graph[x - _minX, y - _minY];
+                    distance = Vector2.Distance(_graph[x - _minX, y - _minY].Pos, _playerPos.position);
                 }
             }
         }
+
+        Debug.Log("Player position" + _playerPos.position);
         
-        Debug.Log("Player position" + playerPos);
         return playerNode;
     }
 
@@ -225,62 +234,62 @@ public class Pathfinding : MonoBehaviour
 
         float distance = 500;
 
-        for (int x = minX; x < maxX; x++)
+        for (int x = _minX; x < _maxX; x++)
         {
-            for (int y = minY; y < maxY; y++)
+            for (int y = _minY; y < _maxY; y++)
             {
                 TileBase currentTile = tilemap.GetTile(new Vector3Int(x, y, 0));
 
                 if (currentTile == null) continue;
-                if (Vector2.Distance(graph[x - minX, y - minY].pos, enemiesPos) < distance && graph[x - minX, y - minY].isFree)
+                if (Vector2.Distance(_graph[x - _minX, y - _minY].Pos, enemiesPos) < distance && _graph[x - _minX, y - _minY].IsFree)
                 {
-                    enemiesNode = graph[x - minX, y - minY];
-                    distance = Vector2.Distance(graph[x - minX, y - minY].pos, enemiesPos);
+                    enemiesNode = _graph[x - _minX, y - _minY];
+                    distance = Vector2.Distance(_graph[x - _minX, y - _minY].Pos, enemiesPos);
                 }
             }
         }
 
-        Debug.Log("Enemies position : " + enemiesNode.pos);
-        
-        
+        Debug.Log("Enemies position : " + enemiesNode.Pos);
+
+
         return enemiesNode;
     }
 
     private void ResetNode()
     {
-        foreach (Node node in graph)
+        foreach (Node node in _graph)
         {
             if (node == null) continue;
-            node.cameFrom = new Node();
-            node.currentCost = 0;
-            node.hasBeenVisited = false;
-            node.isPath = false;
+            node.CameFrom = new Node();
+            node.CurrentCost = -1;
+            node.HasBeenVisited = false;
+            node.IsPath = false;
         }
     }
-    
+
     void OnDrawGizmos()
     {
         if (gizmo)
         {
-            if (minX == maxX || minY == maxY) return;
+            if (_minX == _maxX || _minY == _maxY) return;
 
-            Gizmos.DrawLine(new Vector3(minX, minY), new Vector3(maxX, minY));
-            Gizmos.DrawLine(new Vector3(maxX, minY), new Vector3(maxX, maxY));
-            Gizmos.DrawLine(new Vector3(maxX, maxY), new Vector3(minX, maxY));
-            Gizmos.DrawLine(new Vector3(minX, maxY), new Vector3(minX, minY));
+            Gizmos.DrawLine(new Vector3(_minX, _minY), new Vector3(_maxX, _minY));
+            Gizmos.DrawLine(new Vector3(_maxX, _minY), new Vector3(_maxX, _maxY));
+            Gizmos.DrawLine(new Vector3(_maxX, _maxY), new Vector3(_minX, _maxY));
+            Gizmos.DrawLine(new Vector3(_minX, _maxY), new Vector3(_minX, _minY));
 
-            foreach (Node node in graph)
+            foreach (Node node in _graph)
             {
                 if (node == null) continue;
 
-                Gizmos.color = node.isFree ? Color.blue : Color.red;
+                Gizmos.color = node.IsFree ? Color.blue : Color.red;
 
-                if (node.hasBeenVisited)
+                if (node.HasBeenVisited)
                 {
                     Gizmos.color = Color.yellow;
                 }
 
-                if (node.isPath)
+                if (node.IsPath)
                 {
                     Gizmos.color = Color.green;
                 }
@@ -292,14 +301,14 @@ public class Pathfinding : MonoBehaviour
 
                 if (node == tileGoal)
                 {
-                    Gizmos.color = Color.red;
+                    Gizmos.color = Color.white;
                 }
-                
-                Gizmos.DrawCube(node.pos, Vector3.one * 0.75f);
 
-                foreach (Node nodeNeighbor in node.neighbors)
+                Gizmos.DrawCube(node.Pos, Vector3.one * 0.35f);
+
+                foreach (Node nodeNeighbor in node.Neighbors)
                 {
-                    Gizmos.DrawLine(node.pos, nodeNeighbor.pos);
+                    Gizmos.DrawLine(node.Pos, nodeNeighbor.Pos);
                 }
             }
         }
