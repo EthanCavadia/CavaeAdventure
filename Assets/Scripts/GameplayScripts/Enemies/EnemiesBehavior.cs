@@ -1,88 +1,72 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class EnemiesBehavior : MonoBehaviour
 {
     public state currentState = state.IDLE;
-    public subTag _subTag;
 
     public enum state
     {
         IDLE,
         ATTACK,
-        FOLLOW,
-        RETURN
-    }
-
-    public enum subTag
-    {
-        GOBLIN,
-        GOLEM
+        FOLLOW
     }
 
     private Rigidbody2D _rigidbody2D;
     private List<Vector2> followingPath;
     private int indexPath;
     private float timer = 0;
-    private PathManager pathManager;
-    private GameObject player;
-    private Collider2D rangeCollider;
     private Vector3 startPos;
+    private Vector3 mouvement;
+    private bool inAttackRange;
+    private Animator enemyAnimation;
+    [SerializeField] private float speed = 4;
+    private Transform player;
+    [SerializeField] private float _detectRange;
+    [SerializeField] private float _attackRange;
+    private float attackDelay;
     
-    [SerializeField] private Animator mouvmentAnimation;
-    [SerializeField] private int _detectRange;
-    [SerializeField] private int _minRange;
-    [SerializeField] private Collider2D upCollider, downColider, leftCollider, rightCollider;
-    public bool path;
+
     private void Start()
     {
         _rigidbody2D = GetComponent<Rigidbody2D>();
-        mouvmentAnimation = GetComponent<Animator>();
+        enemyAnimation = GetComponent<Animator>();
         followingPath = new List<Vector2>();
-        player = GameObject.FindGameObjectWithTag("Player");
-
+        player = FindObjectOfType<PlayerMouvement>().transform;
         startPos = transform.position;
     }
 
     private void Update()
     {
+        mouvement = new Vector3(_rigidbody2D.velocity.x, _rigidbody2D.velocity.y, 0.0f);
 
-        Collider2D collider = Physics2D.OverlapCircle(transform.position, _detectRange);
-        rangeCollider = Physics2D.OverlapCircle(transform.position, _detectRange);
+        enemyAnimation.SetFloat("Horizontal", mouvement.x);
+        enemyAnimation.SetFloat("Vertical", mouvement.y);
+        enemyAnimation.SetFloat("Magnitude", mouvement.magnitude);
 
-        Vector3 mouvement = new Vector3(_rigidbody2D.velocity.x, _rigidbody2D.velocity.y, 0.0f);
+        
 
-        mouvmentAnimation.SetFloat("Horizontal", mouvement.x);
-        mouvmentAnimation.SetFloat("Vertical", mouvement.y);
-        mouvmentAnimation.SetFloat("Magnitude", mouvement.magnitude);
-
-        if (collider.CompareTag("Player"))
+        if (Vector2.Distance(transform.position, player.position) >= _attackRange && Vector2.Distance(transform.position, player.position) <= _detectRange)
         {
             currentState = state.FOLLOW;
+            Debug.Log("player enter follow range");
         }
-        else
+        
+        if (Vector2.Distance(transform.position, player.position) <= _attackRange)
         {
-            if (transform.position != startPos)
-            {
-                //currentState = state.RETURN;
-            }
-            else
-            {
-                currentState = state.IDLE;
-            }
+            currentState = state.ATTACK;
+            Debug.Log("player enter attack range");
         }
-
         
-        
-        timer += Time.deltaTime;
-
         switch (currentState)
         {
             case state.IDLE:
-                //patrol random
+                inAttackRange = false;
                 break;
             case state.FOLLOW:
+                inAttackRange = false;
                 if (timer > 1)
                 {
                     FindPlayer();
@@ -90,13 +74,13 @@ public class EnemiesBehavior : MonoBehaviour
                 }
                 FollowPath();
                 break;
-            case state.RETURN:
-                //go back to pos
-                break;
             case state.ATTACK:
-                AttackPlayer();
+                inAttackRange = true;
                 break;
+
         }
+        AttackPlayer();
+        timer += Time.deltaTime;
     }
 
     private void FindPlayer()
@@ -107,14 +91,14 @@ public class EnemiesBehavior : MonoBehaviour
 
     private void FollowPath()
     {
+        
         if (indexPath >= followingPath.Count)
         {
             _rigidbody2D.velocity = Vector2.zero;
             FindPlayer();
             return;
         }
-
-        _rigidbody2D.velocity = followingPath[indexPath] - (Vector2)transform.position;
+        _rigidbody2D.velocity = followingPath[indexPath] - (Vector2) transform.position;
         _rigidbody2D.velocity = _rigidbody2D.velocity.normalized * 2f;
 
         if (Vector2.Distance(transform.position, followingPath[indexPath]) < 0.1f)
@@ -123,26 +107,17 @@ public class EnemiesBehavior : MonoBehaviour
         }
     }
 
-    public void AttackPlayer()
+    private void AttackPlayer()
     {
-        if (timer > 3)
-        {
-            //play animation
-            //rangeCollider.enabled = true;
-        }
-
-        timer += Time.deltaTime;
+        enemyAnimation.SetBool("InRange", inAttackRange);
     }
 
-    private void RandomMove()
-    {
-        //TODO
-    }
+
     private void OnDrawGizmos()
     {
         Gizmos.DrawWireSphere(transform.position, _detectRange);
-        Gizmos.DrawWireSphere(transform.position, _minRange);
-        
+        Gizmos.DrawWireSphere(transform.position, _attackRange);
+
         if (followingPath == null) return;
         if (followingPath.Count <= indexPath) return;
         foreach (Vector2 node in followingPath)
@@ -154,7 +129,6 @@ public class EnemiesBehavior : MonoBehaviour
             }
 
             Gizmos.DrawWireSphere(node, 0.1f);
-
         }
     }
 }

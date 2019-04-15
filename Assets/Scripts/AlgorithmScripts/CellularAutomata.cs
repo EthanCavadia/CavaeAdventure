@@ -1,4 +1,5 @@
-﻿using System;
+﻿
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -8,21 +9,26 @@ using Random = UnityEngine.Random;
 
 public class CellularAutomata : MonoBehaviour
 {
-    [Header("Map ")] 
+    [Header("Map definition")] 
     [Range(0, 1000)] public int sizeX = 100;
     [Range(0, 1000)] public int sizeY = 50;
     [Range(0, 1)] [SerializeField] private float fillPercent = 0.5f;
     [Range(0, 100)] [SerializeField] private int iteration = 10;
     [SerializeField] private int minimumCellInRoom = 30;
+    
+    [Header("Map visual")]
     [SerializeField] private TileBase wallTile;
     [SerializeField] private TileBase groundTile;
     [SerializeField] private Tilemap wallTilemap;
     [SerializeField] private Tilemap groundTilemap;
     [SerializeField] private Tilemap backgroundTilemap;
-    [SerializeField] private bool showPaths;
-    [SerializeField] private bool drawDebugGizmo;
     [SerializeField] private GameObject playerPrefab;
     [SerializeField] private GameObject enemiesPrefab;
+    
+    [Header("")]
+    [SerializeField] private bool showPaths;
+    [SerializeField] private bool drawDebugGizmo;
+    
     [SerializeField] private int seed;
     struct Cell
     {
@@ -38,8 +44,8 @@ public class CellularAutomata : MonoBehaviour
         public List<Room> ClosestRoom;
         public List<Tunnel> Tunnels;
         public Vector2 RoomCenter;
-        public Vector2 playerSpawn;
         public bool occupied;
+        public int _enemiesCount = 5;
     }
 
     private struct Tunnel
@@ -49,8 +55,8 @@ public class CellularAutomata : MonoBehaviour
 
     Cell[,] _cells;
     List<Room> rooms = new List<Room>();
-    private int _playerCount = 1;
-    private int _enemiesCount = 10;
+   
+    
     private bool _isRunning = false;
     private int _currentRegion = 0;
     private float offset = 2;
@@ -295,7 +301,6 @@ public class CellularAutomata : MonoBehaviour
         int randomNb = Random.Range(0, rooms[0].Cells.Count);
         Vector3 spawnPosition = new Vector3(rooms[0].Cells[randomNb].Position.x, rooms[0].Cells[randomNb].Position.y);
         
-        
         Instantiate(playerPrefab, spawnPosition, Quaternion.identity);
         rooms[0].occupied = true;
 
@@ -306,9 +311,9 @@ public class CellularAutomata : MonoBehaviour
             int random = Random.Range(0, currentRoom.Cells.Count);
             Vector3 cellsPos = new Vector3(rooms[i].Cells[random].Position.x, rooms[i].Cells[random].Position.y);
             
-            if (_enemiesCount > 0 && !currentRoom.occupied)
+            if (rooms[i]._enemiesCount > 0 && !currentRoom.occupied)
             {
-                _enemiesCount--;
+                rooms[i]._enemiesCount--;
                 Instantiate(enemiesPrefab, cellsPos, Quaternion.identity);
                 Debug.Log("enemies spawn position" + cellsPos);
             }
