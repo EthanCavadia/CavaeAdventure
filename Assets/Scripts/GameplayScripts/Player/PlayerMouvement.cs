@@ -11,6 +11,7 @@ public class PlayerMouvement : MonoBehaviour
     private float v;
     private Rigidbody2D body2D;
     private Animator animator;
+    private Vector2 target;
     [SerializeField] private float playerSpeed;
 
 
@@ -21,9 +22,10 @@ public class PlayerMouvement : MonoBehaviour
 
     void Start()
     {
+        
         body2D = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
-
+        
     }
 
     private void FixedUpdate()
@@ -45,8 +47,6 @@ public class PlayerMouvement : MonoBehaviour
 
     void Movement()
     {
-        
-        
         Vector3 movement = new Vector3(Input.GetAxis("Horizontal"),Input.GetAxis("Vertical"), 0.0f) * playerSpeed;
         
         animator.SetFloat("Horizontal", movement.x);
@@ -58,6 +58,8 @@ public class PlayerMouvement : MonoBehaviour
     
     void Shoot()
     {
+        
         Instantiate(bulletPrefab, transform.position, Quaternion.identity);
+       
     }
 }
